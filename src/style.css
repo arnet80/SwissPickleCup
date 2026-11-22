@@ -653,6 +653,46 @@ td:nth-child(2) {
   font-weight: 800;
 }
 
+.matrix-heading {
+  margin-top: 28px;
+}
+
+.matrix-wrap {
+  margin-bottom: 20px;
+}
+
+.matrix-table {
+  min-width: 620px;
+}
+
+.matrix-table th,
+.matrix-table td {
+  text-align: center;
+  min-width: 72px;
+}
+
+.matrix-table thead th:first-child,
+.matrix-team {
+  text-align: left;
+  min-width: 150px;
+}
+
+.matrix-team {
+  color: var(--wsv-ink);
+  background: #f8faf9;
+}
+
+.matrix-self {
+  color: #a5afa8;
+  background: #edf2ef;
+}
+
+.matrix-played {
+  background: #eaf6ef;
+  color: var(--wsv-green-dark);
+  font-weight: 900;
+}
+
 @media (max-width: 820px) {
   main {
     width: 94%;

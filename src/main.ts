@@ -230,6 +230,7 @@ function removeTeam(id: string) {
 
 function render() {
   const table = stats()
+  const matrix = encounterMatrix()
   const latestRound = state.rounds.length
   const roundsHtml = latestRound ? state.rounds.map((round, roundIndex) => `
           <article class="round-card ${roundIndex === state.rounds.length - 1 ? 'current-round' : ''}">
@@ -318,11 +319,22 @@ function render() {
         </div>
       </section>
 
-      <section class="tab-panel" id="panel-tabelle">
+      <section class="tab-panel ${activeTab === 'tabelle' ? 'active' : ''}" id="panel-tabelle">
         <div class="section-heading"><div><span class="eyebrow">Aktueller Stand</span><h2>Turniertabelle</h2></div></div>
         <div class="table-wrap">
           <table><thead><tr><th>#</th><th>Team</th><th>Punkte</th><th>Spielpunkte</th><th>Siege</th><th>Remis</th><th>Niederlagen</th><th>Buchholz</th></tr></thead>
           <tbody>${table.map((row, index) => `<tr><td><span class="rank ${index === 0 ? 'gold' : ''}">${index + 1}</span></td><td class="table-team">${escapeHtml(row.name)}</td><td class="points">${formatPoints(row.points)}</td><td class="game-points">${row.gamePoints}</td><td>${row.wins}</td><td>${row.draws}</td><td>${row.losses}</td><td>${formatPoints(row.buchholz)}</td></tr>`).join('')}</tbody></table>
+        </div>
+        <div class="section-heading matrix-heading"><div><span class="eyebrow">Begegnungen</span><h2>Spielmatrix</h2></div></div>
+        <div class="table-wrap matrix-wrap">
+          <table class="matrix-table">
+            <thead><tr><th>Team</th>${state.teams.map(team => `<th title="${escapeHtml(team.name)}">${escapeHtml(team.name)}</th>`).join('')}</tr></thead>
+            <tbody>${state.teams.map(team => `<tr><th class="matrix-team">${escapeHtml(team.name)}</th>${state.teams.map(other => {
+              if (team.id === other.id) return '<td class="matrix-self">—</td>'
+              const count = matrix.get(team.id)?.get(other.id) ?? 0
+              return `<td class="${count > 0 ? 'matrix-played' : ''}">${count}</td>`
+            }).join('')}</tr>`).join('')}</tbody>
+          </table>
         </div>
       </section>
     </main>
@@ -403,6 +415,22 @@ function bindEvents() {
     save()
     render()
   })
+}
+
+function encounterMatrix() {
+  const matrix = new Map<string, Map<string, number>>()
+  for (const team of state.teams) {
+    matrix.set(team.id, new Map(state.teams.map(other => [other.id, 0])))
+  }
+
+  for (const round of state.rounds) {
+    for (const pairing of round.pairings) {
+      if (!pairing.b) continue
+      matrix.get(pairing.a)?.set(pairing.b, (matrix.get(pairing.a)?.get(pairing.b) ?? 0) + 1)
+      matrix.get(pairing.b)?.set(pairing.a, (matrix.get(pairing.b)?.get(pairing.a) ?? 0) + 1)
+    }
+  }
+  return matrix
 }
 
 render()
