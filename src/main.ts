@@ -253,7 +253,7 @@ function render() {
   const table = stats()
   const matrix = encounterMatrix()
   const latestRound = state.rounds.length
-  const roundsHtml = latestRound ? state.rounds.map((round, roundIndex) => `
+  const roundsHtml = latestRound ? state.rounds.map((round, roundIndex) => ({ round, roundIndex })).reverse().map(({ round, roundIndex }) => `
           <article class="round-card ${roundIndex === state.rounds.length - 1 ? 'current-round' : ''}">
             <div class="round-head"><h3>Runde ${roundIndex + 1}</h3><span>${round.pairings.every(p => p.result !== null) ? 'Abgeschlossen' : 'Läuft'}</span></div>
             <div class="pairings">
