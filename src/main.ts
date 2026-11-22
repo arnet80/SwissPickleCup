@@ -93,16 +93,34 @@ function rankingTeamIds() {
   return stats().map(row => row.id)
 }
 
+function pairingComplete(pairing: Pairing) {
+  return pairing.b === null || (pairing.result !== null && pairing.scoreA != null && pairing.scoreB != null)
+}
+
+function availableTeamIds() {
+  if (state.rounds.length === 0) return rankingTeamIds()
+
+  const busy = new Set<string>()
+  for (const round of state.rounds) {
+    for (const pairing of round.pairings) {
+      if (!pairingComplete(pairing)) {
+        busy.add(pairing.a)
+        if (pairing.b) busy.add(pairing.b)
+      }
+    }
+  }
+  return rankingTeamIds().filter(id => !busy.has(id))
+}
+
 function generateRound() {
   if (state.teams.length < 2) return
-  const last = state.rounds.at(-1)
-  if (last?.pairings.some(pairing => pairing.b && (pairing.result === null || pairing.scoreA == null || pairing.scoreB == null))) {
-    alert('Bitte zuerst alle Ergebnisse der aktuellen Runde eintragen.')
+
+  const remaining = [...availableTeamIds()]
+  if (remaining.length < 2) {
+    alert('Noch nicht genügend Teams sind spielfrei. Trage zuerst weitere Ergebnisse ein.')
     return
   }
 
-  const ranking = rankingTeamIds()
-  const remaining = [...ranking]
   const pairings: Pairing[] = []
 
   if (remaining.length % 2 === 1) {
@@ -148,7 +166,7 @@ function generateRound() {
 
   let court = 1
   for (const [a, b] of matches) {
-    pairings.push({ a, b, court: court <= state.courts ? court : ((court - 1) % state.courts) + 1, result: null })
+    pairings.push({ a, b, court: court <= state.courts ? court : ((court - 1) % state.courts) + 1, result: null, scoreA: null, scoreB: null })
     court++
   }
   state.rounds.push({ pairings })
@@ -213,7 +231,6 @@ function removeTeam(id: string) {
 function render() {
   const table = stats()
   const latestRound = state.rounds.length
-  const allResultsEntered = state.rounds.length > 0 && state.rounds.every(r => r.pairings.every(p => !p.b || (p.result !== null && p.scoreA != null && p.scoreB != null)))
   const roundsHtml = latestRound ? state.rounds.map((round, roundIndex) => `
           <article class="round-card ${roundIndex === state.rounds.length - 1 ? 'current-round' : ''}">
             <div class="round-head"><h3>Runde ${roundIndex + 1}</h3><span>${round.pairings.every(p => p.result !== null) ? 'Abgeschlossen' : 'Läuft'}</span></div>
@@ -244,6 +261,9 @@ function render() {
             </div>
           </article>
         `).join('') : `<div class="empty"><div class="empty-icon">🏓</div><h3>Bereit für die erste Runde</h3><p>Lege Teams und Plätze fest und erstelle anschließend den Spielplan.</p></div>`
+
+  const availableCount = availableTeamIds().length
+  const canCreatePairings = availableCount >= 2
 
   document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <header class="topbar">
@@ -278,7 +298,7 @@ function render() {
       <section class="tab-panel ${activeTab === 'turnier' ? 'active' : ''}" id="panel-turnier">
         <div class="section-heading">
           <div><span class="eyebrow">Spielplan</span><h2>${latestRound ? `Runde ${latestRound}` : 'Noch keine Runde'}</h2></div>
-          <button class="primary" id="nextRoundBtn" ${!allResultsEntered && latestRound ? 'disabled' : ''}>${latestRound ? 'Nächste Runde erstellen' : 'Erste Runde erstellen'} <span>→</span></button>
+          <div class="live-actions"><span class="available-teams">${availableCount} Team${availableCount === 1 ? '' : 's'} spielfrei</span><button class="primary" id="nextRoundBtn" ${!canCreatePairings ? 'disabled' : ''}>${latestRound ? 'Paarungen ergänzen' : 'Erste Runde erstellen'} <span>→</span></button></div>
         </div>
 
         ${roundsHtml}
