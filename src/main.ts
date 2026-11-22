@@ -134,35 +134,56 @@ function generateRound() {
     pairings.push({ a: by, b: null, court: 0, result: 'a' })
   }
 
-  function match(ids: string[], start: number, matches: [string, string][]): [string, string][] | null {
-    if (start >= ids.length) return matches
-    const first = ids[start]
-    const oldPairs = previousPairs(first)
-    for (let i = start + 1; i < ids.length; i++) {
-      const second = ids[i]
-      if (oldPairs.has(second)) continue
-      const rest = [...ids]
-      rest.splice(i, 1)
-      rest.splice(start, 1)
-      const next = match(rest, 0, [...matches, [first, second]])
-      if (next) return next
-    }
-    for (let i = start + 1; i < ids.length; i++) {
-      const second = ids[i]
-      const rest = [...ids]
-      rest.splice(i, 1)
-      rest.splice(start, 1)
-      const next = match(rest, 0, [...matches, [first, second]])
-      if (next) return next
-    }
-    return null
+  const table = stats()
+  const rankPosition = new Map(rankingTeamIds().map((id, index) => [id, index]))
+
+  function pairCost(a: string, b: string) {
+    const aRow = table.find(row => row.id === a)
+    const bRow = table.find(row => row.id === b)
+    const pointDistance = aRow && bRow ? Math.abs(aRow.points - bRow.points) : 99
+    const rankDistance = Math.abs((rankPosition.get(a) ?? 99) - (rankPosition.get(b) ?? 99))
+    return pointDistance * 100 + rankDistance
   }
 
-  let matches = match(remaining, 0, [])
-  if (!matches) {
-    matches = []
-    for (let i = 0; i < remaining.length; i += 2) matches.push([remaining[i], remaining[i + 1]])
+  function findBestMatches(ids: string[]): { cost: number; matches: [string, string][] } | null {
+    const memo = new Map<string, { cost: number; matches: [string, string][] } | null>()
+
+    function solve(current: string[]): { cost: number; matches: [string, string][] } | null {
+      if (current.length === 0) return { cost: 0, matches: [] }
+      const key = [...current].sort().join('|')
+      if (memo.has(key)) return memo.get(key)!
+
+      const first = current[0]
+      let best: { cost: number; matches: [string, string][] } | null = null
+
+      for (let i = 1; i < current.length; i++) {
+        const second = current[i]
+        if (previousPairs(first).has(second)) continue
+
+        const rest = current.filter((_, index) => index !== 0 && index !== i)
+        const solved = solve(rest)
+        if (!solved) continue
+
+        const candidate = {
+          cost: pairCost(first, second) + solved.cost,
+          matches: [[first, second], ...solved.matches] as [string, string][],
+        }
+        if (!best || candidate.cost < best.cost) best = candidate
+      }
+
+      memo.set(key, best)
+      return best
+    }
+
+    return solve(ids)
   }
+
+  const result = findBestMatches(remaining)
+  if (!result) {
+    alert('Für die spielfreien Teams ist derzeit keine wiederholungsfreie Paarung möglich.')
+    return
+  }
+  const matches = result.matches
 
   let court = 1
   for (const [a, b] of matches) {
