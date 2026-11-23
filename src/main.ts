@@ -145,7 +145,7 @@ function generateRound() {
     return pointDistance * 100 + rankDistance
   }
 
-  function findBestMatches(ids: string[]): { cost: number; matches: [string, string][] } | null {
+  function findBestMatches(ids: string[], allowRepeats = false): { cost: number; matches: [string, string][] } | null {
     const memo = new Map<string, { cost: number; matches: [string, string][] } | null>()
 
     function solve(current: string[]): { cost: number; matches: [string, string][] } | null {
@@ -158,14 +158,16 @@ function generateRound() {
 
       for (let i = 1; i < current.length; i++) {
         const second = current[i]
-        if (previousPairs(first).has(second)) continue
+        if (!allowRepeats && previousPairs(first).has(second)) continue
 
         const rest = current.filter((_, index) => index !== 0 && index !== i)
         const solved = solve(rest)
         if (!solved) continue
 
         const candidate = {
-          cost: pairCost(first, second) + solved.cost,
+          cost: pairCost(first, second)
+            + (allowRepeats && previousPairs(first).has(second) ? 10000 : 0)
+            + solved.cost,
           matches: [[first, second], ...solved.matches] as [string, string][],
         }
         if (!best || candidate.cost < best.cost) best = candidate
@@ -180,19 +182,24 @@ function generateRound() {
 
   const result = findBestMatches(remaining)
   if (!result) {
-    alert('Für die spielfreien Teams ist derzeit keine wiederholungsfreie Paarung möglich.')
+    if (!confirm('Keine wiederholungsfreie Paarung möglich. Möchtest du die Runde trotzdem mit Wiederholungen auslosen?')) return
+    const repeatedResult = findBestMatches(remaining, true)
+    if (!repeatedResult) return
+    createRound(repeatedResult.matches)
     return
   }
-  const matches = result.matches
+  createRound(result.matches)
 
-  let court = 1
-  for (const [a, b] of matches) {
-    pairings.push({ a, b, court: court <= state.courts ? court : ((court - 1) % state.courts) + 1, result: null, scoreA: null, scoreB: null })
-    court++
+  function createRound(matches: [string, string][]) {
+    let court = 1
+    for (const [a, b] of matches) {
+      pairings.push({ a, b, court: court <= state.courts ? court : ((court - 1) % state.courts) + 1, result: null, scoreA: null, scoreB: null })
+      court++
+    }
+    state.rounds.push({ pairings })
+    save()
+    render()
   }
-  state.rounds.push({ pairings })
-  save()
-  render()
 }
 
 function setResult(roundIndex: number, pairingIndex: number, result: Pairing['result']): void {
